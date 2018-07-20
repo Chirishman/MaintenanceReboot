@@ -1,4 +1,31 @@
-﻿Function Get-TargetResource {
+﻿Class MaintenanceWindow {
+
+    [Bool]$Enabled = $true
+    [DateTime]$StartTime
+    [DateTime]$EndTime
+    [System.DayOfWeek[]]$DaysOfWeek = @([System.DayOfWeek]::Saturday, [System.DayOfWeek]::Sunday)
+    [ValidateSet('Weekly', 'Daily')][string]$Frequency
+
+    MaintenanceWindow ([DateTime]$StartTime, [DateTime]$EndTime, [String]$Frequency) {
+        $this.StartTime = $StartTime
+        $this.EndTime = $EndTime
+        $this.Frequency = $Frequency
+
+        if ( $Frequency -eq 'Daily' ) {
+            $this.DaysOfWeek = ([system.dayofweek].DeclaredMembers.Name | Where-Object {$_ -notmatch '_'})
+        }
+    }
+
+    MaintenanceWindow ([DateTime]$StartTime, [DateTime]$EndTime, [String]$Frequency, [System.DayOfWeek[]]$DaysOfWeek) {
+        $this.StartTime = $StartTime
+        $this.EndTime = $EndTime
+        $this.DaysOfWeek = $DaysOfWeek
+        $this.Frequency = $Frequency
+    }
+
+}
+
+Function Get-TargetResource {
     [CmdletBinding()]
     [OutputType([Hashtable])]
     param
@@ -104,6 +131,10 @@ Function Test-TargetResource {
         $Name,
 
         [Parameter()]
+        [MaintenanceWindow]
+        $MaintenanceWindow,
+
+        [Parameter()]
         [bool]
         $SkipComponentBasedServicing,
 
@@ -125,29 +156,31 @@ Function Test-TargetResource {
     )
 
     $status = Get-TargetResource $Name -SkipCcmClientSDK $SkipCcmClientSDK
+    $RebootsFound = $false
 
-    if (-not $SkipComponentBasedServicing -and $status.ComponentBasedServicing) {
-        Write-Verbose 'Pending component based servicing reboot found.'
-        return $false
+    @(
+        @('ComponentBasedServicing', 'Pending component based servicing reboot found.'),
+        @('WindowsUpdate', 'Pending Windows Update reboot found.'),
+        @('PendingFileRename', 'Pending file rename found.'),
+        @('PendingComputerRename', 'Pending computer rename found.')
+    ) | ForEach-Object {
+        if ((-not (Get-Variable -Name ( -join ('Skip', $_[0])) -ValueOnly)) -and $Status[$_[0]]) {
+            Write-Verbose $_[1]
+            $RebootsFound = $true
+        }
     }
-
-    if (-not $SkipWindowsUpdate -and $status.WindowsUpdate) {
-        Write-Verbose 'Pending Windows Update reboot found.'
-        return $false
+    if (-not $RebootsFound) {
+        Write-Verbose 'No pending reboots found.'
+        $true
     }
-
-    if (-not $SkipPendingFileRename -and $status.PendingFileRename) {
-        Write-Verbose 'Pending file rename found.'
-        return $false
+    elseif ($datetime) {
+        Write-Verbose 'Not Within Maintenance Window - Skipping Reboot'
+        $true
     }
-
-    if (-not $SkipPendingComputerRename -and $status.PendingComputerRename) {
-        Write-Verbose 'Pending computer rename found.'
-        return $false
+    else {
+        Write-Verbose 'Within Maintenance Window - Initiating Reboot'
+        $false
     }
-
-    Write-Verbose 'No pending reboots found.'
-    return $true
 }
 
 Export-ModuleMember -Function *-TargetResource
