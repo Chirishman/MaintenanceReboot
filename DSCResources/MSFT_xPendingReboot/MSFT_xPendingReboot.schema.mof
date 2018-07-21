@@ -2,6 +2,9 @@
 class MSFT_xPendingReboot : OMI_BaseResource
 {
   [key, Description("Name of this pending reboot check")] string Name;
+  
+  [write, Description("Defines a maintenance window during which reboots are allowed")] MaintenanceWindow MaintenanceWindow;
+
   [write, Description("Specifies whether to skip reboots triggered by the Component-Based Servicing component")] boolean SkipComponentBasedServicing;
   [read, Description("A value indicating whether the Component-Based Servicing component requested a reboot")] boolean ComponentBasedServicing;
 

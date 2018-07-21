@@ -1,8 +1,7 @@
 ﻿Function Get-TargetResource {
     [CmdletBinding()]
     [OutputType([Hashtable])]
-    param
-    (
+    Param(
         [Parameter(Mandatory = $true)]
         [string]
         $Name,
@@ -65,8 +64,7 @@
 
 Function Set-TargetResource {
     [CmdletBinding(SupportsShouldProcess)]
-    param
-    (
+    Param(
         [Parameter(Mandatory = $true)]
         [string]
         $Name,
@@ -97,8 +95,7 @@ Function Set-TargetResource {
 Function Test-TargetResource {
     [CmdletBinding()]
     [OutputType([Boolean])]
-    param
-    (
+    Param(
         [Parameter(Mandatory = $true)]
         [string]
         $Name,
@@ -129,6 +126,7 @@ Function Test-TargetResource {
     )
 
     $status = Get-TargetResource $Name -SkipCcmClientSDK $SkipCcmClientSDK
+    $Now = [datetime]::Now
     $RebootsFound = $false
 
     @(
@@ -146,7 +144,11 @@ Function Test-TargetResource {
         Write-Verbose 'No pending reboots found.'
         $true
     }
-    elseif ($datetime) {
+    elseif ($MaintenanceWindow -and ( -not (
+            $Now.DayOfWeek -in $MaintenanceWindow.DaysOfWeek -and
+            $Now.TimeOfDay -gt $MaintenanceWindow.StartTime.TimeOfDay -and
+            $Now.TimeOfDay -lt $MaintenanceWindow.EndTime.TimeOfDay
+        ))) {
         Write-Verbose 'Not Within Maintenance Window - Skipping Reboot'
         $true
     }
