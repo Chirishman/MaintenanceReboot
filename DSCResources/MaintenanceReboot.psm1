@@ -1,5 +1,4 @@
 Class MaintenanceWindow {
-
     [Bool]$Enabled = $true
     [DateTime]$StartTime
     [DateTime]$EndTime
@@ -22,15 +21,26 @@ Class MaintenanceWindow {
         $this.DaysOfWeek = $DaysOfWeek
         $this.Frequency = $Frequency
     }
+	MaintenanceWindow ([MaintenanceWindow]$MaintenanceWindow) {
+        $this.Enabled = $MaintenanceWindow.Enabled
+		$this.StartTime = $MaintenanceWindow.StartTime
+        $this.EndTime = $MaintenanceWindow.EndTime
+        $this.DaysOfWeek = $MaintenanceWindow.DaysOfWeek
+        $this.Frequency = $MaintenanceWindow.Frequency
+    }
+	MaintenanceWindow ([String]$JSON) {
+        $ParsedJSON = $JSON | ConvertFrom-Json
+		$this.Enabled = $ParsedJSON.Enabled
+		$this.StartTime = $ParsedJSON.StartTime
+        $this.EndTime = $ParsedJSON.EndTime
+        $this.DaysOfWeek = $ParsedJSON.DaysOfWeek
+        $this.Frequency = $ParsedJSON.Frequency
+    }
 
+	ToString() {
+		$this | ConvertTo-Json -Compress
+	}
 }
-
-<#
-enum Ensure {
-    Absent
-    Present
-}
-#>
 
 [DscResource()]
 
@@ -61,7 +71,6 @@ class MaintenanceReboot {
     [DscProperty(NotConfigurable)]
     [boolean]$PendingComputerRename
 
-
     [DscProperty()]
     [boolean]$SkipCcmClientSDK
     [DscProperty(NotConfigurable)]
@@ -69,27 +78,17 @@ class MaintenanceReboot {
 
     [MaintenanceReboot] Get() {
         $ComponentBasedServicingKeys = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\').Name
-        if ($ComponentBasedServicingKeys) {
-            $this.ComponentBasedServicing = $ComponentBasedServicingKeys.Split("\") -contains "RebootPending"
-        }
-        else {
-            $this.ComponentBasedServicing = $false
-        }
+
+        $this.ComponentBasedServicing = $ComponentBasedServicingKeys -Split "\\" -contains "RebootPending"
 
         $WindowsUpdateKeys = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\').Name
-        if ($WindowsUpdateKeys) {
-            $this.WindowsUpdate = $WindowsUpdateKeys.Split("\") -contains "RebootRequired"
-        }
-        else {
-            $this.WindowsUpdate = $false
-        }
+
+        $this.WindowsUpdate = $WindowsUpdateKeys -Split "\\" -contains "RebootRequired"
 
         $this.PendingFileRename = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\').PendingFileRenameOperations.Length -gt 0
         $ActiveComputerName = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName').ComputerName
         $PendingComputerName = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName').ComputerName
         $this.PendingComputerRename = $ActiveComputerName -ne $PendingComputerName
-
-
 
         if (-not $this.SkipCcmClientSDK) {
             $CCMSplat = @{
@@ -105,7 +104,7 @@ class MaintenanceReboot {
                 Catch {
                     Write-Warning "Unable to query CCM_ClientUtilities: $_"
                 }
-            ) | % {(($_.ReturnValue -eq 0) -and ($_.IsHardRebootPending -or $_.RebootPending))}
+            ) | ForEach-Object {(($_.ReturnValue -eq 0) -and ($_.IsHardRebootPending -or $_.RebootPending))}
         } #CCM_ClientUtilities querey
 
         return $this

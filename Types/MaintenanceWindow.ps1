@@ -1,5 +1,4 @@
 Class MaintenanceWindow {
-
     [Bool]$Enabled = $true
     [DateTime]$StartTime
     [DateTime]$EndTime
@@ -22,5 +21,23 @@ Class MaintenanceWindow {
         $this.DaysOfWeek = $DaysOfWeek
         $this.Frequency = $Frequency
     }
+	MaintenanceWindow ([MaintenanceWindow]$MaintenanceWindow) {
+        $this.Enabled = $MaintenanceWindow.Enabled
+		$this.StartTime = $MaintenanceWindow.StartTime
+        $this.EndTime = $MaintenanceWindow.EndTime
+        $this.DaysOfWeek = $MaintenanceWindow.DaysOfWeek
+        $this.Frequency = $MaintenanceWindow.Frequency
+    }
+	MaintenanceWindow ([String]$JSON) {
+        $ParsedJSON = $JSON | ConvertFrom-Json
+		$this.Enabled = $ParsedJSON.Enabled
+		$this.StartTime = $ParsedJSON.StartTime
+        $this.EndTime = $ParsedJSON.EndTime
+        $this.DaysOfWeek = $ParsedJSON.DaysOfWeek
+        $this.Frequency = $ParsedJSON.Frequency
+    }
 
+	[String]ToString() {
+		return "$($this | ConvertTo-Json -Compress)"
+	}
 }
